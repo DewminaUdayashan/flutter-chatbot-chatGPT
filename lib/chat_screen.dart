@@ -1,3 +1,4 @@
+import 'package:chatty/services.dart';
 import 'package:flutter/material.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -11,7 +12,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final List<ChatMessage> _messages = <ChatMessage>[];
   final TextEditingController _textController = TextEditingController();
 
-  void _handleSubmit(String text) {
+  void _handleSubmit(String text) async {
     _textController.clear();
     ChatMessage message = ChatMessage(
       text: text,
@@ -20,6 +21,15 @@ class _ChatScreenState extends State<ChatScreen> {
     );
     setState(() {
       _messages.insert(0, message);
+    });
+    final replyFromAI = await ChatGPTAPI().getMessage(text);
+    ChatMessage reply = ChatMessage(
+      text: replyFromAI.choices?.first.message?.content ?? "",
+      sender: "AI",
+      time: DateTime.now(),
+    );
+    setState(() {
+      _messages.insert(0, reply);
     });
   }
 
@@ -94,15 +104,17 @@ class ChatMessage extends StatelessWidget {
             margin: const EdgeInsets.only(right: 16.0),
             child: CircleAvatar(child: Text(sender[0])),
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(sender, style: Theme.of(context).textTheme.titleMedium),
-              Container(
-                margin: const EdgeInsets.only(top: 5.0),
-                child: Text(text),
-              ),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(sender, style: Theme.of(context).textTheme.titleMedium),
+                Container(
+                  margin: const EdgeInsets.only(top: 5.0),
+                  child: Text(text),
+                ),
+              ],
+            ),
           ),
           Container(
             margin: const EdgeInsets.only(left: 16.0),
