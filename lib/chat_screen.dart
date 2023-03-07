@@ -1,5 +1,6 @@
-import 'package:chatty/services.dart';
+import 'package:chatty/chat/chat_cubit.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -9,50 +10,28 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
-  final List<ChatMessage> _messages = <ChatMessage>[];
-  final TextEditingController _textController = TextEditingController();
-
-  void _handleSubmit(String text) async {
-    _textController.clear();
-    ChatMessage message = ChatMessage(
-      text: text,
-      sender: "Me",
-      time: DateTime.now(),
-    );
-    setState(() {
-      _messages.insert(0, message);
-    });
-    final replyFromAI = await ChatGPTAPI().getMessage(text);
-    ChatMessage reply = ChatMessage(
-      text: replyFromAI.choices?.first.message?.content ?? "",
-      sender: "AI",
-      time: DateTime.now(),
-    );
-    setState(() {
-      _messages.insert(0, reply);
-    });
-  }
-
   Widget _buildTextComposer() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8.0),
-      child: Row(
-        children: <Widget>[
-          Flexible(
-            child: TextField(
-              controller: _textController,
-              onSubmitted: _handleSubmit,
-              decoration:
-                  const InputDecoration.collapsed(hintText: "Send a message"),
+    return Builder(builder: (context) {
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 8.0),
+        child: Row(
+          children: <Widget>[
+            Flexible(
+              child: TextField(
+                controller: context.read<ChatCubit>().textEditingController,
+                keyboardType: TextInputType.multiline,
+                decoration:
+                    const InputDecoration.collapsed(hintText: "Send a message"),
+              ),
             ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.send),
-            onPressed: () => _handleSubmit(_textController.text),
-          ),
-        ],
-      ),
-    );
+            IconButton(
+              icon: const Icon(Icons.send),
+              onPressed: () => context.read<ChatCubit>().sendMessage(),
+            ),
+          ],
+        ),
+      );
+    });
   }
 
   @override
@@ -61,37 +40,59 @@ class _ChatScreenState extends State<ChatScreen> {
       appBar: AppBar(
         title: const Text("AI Chat"),
       ),
-      body: Column(
-        children: <Widget>[
-          Flexible(
-            child: ListView.builder(
-              padding: const EdgeInsets.all(8.0),
-              reverse: true,
-              itemBuilder: (_, int index) => _messages[index],
-              itemCount: _messages.length,
-            ),
-          ),
-          const Divider(height: 1.0),
-          Container(
-            decoration: BoxDecoration(color: Theme.of(context).cardColor),
-            child: _buildTextComposer(),
-          ),
-        ],
+      body: BlocBuilder<ChatCubit, ChatState>(
+        builder: (context, state) {
+          if (state is ChatingState) {
+            return Column(
+              children: <Widget>[
+                Flexible(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(8.0),
+                    reverse: true,
+                    itemBuilder: (_, int index) =>
+                        (state.messages?.isEmpty ?? true)
+                            ? const SizedBox.shrink()
+                            : ChatItem(
+                                chatMessage:
+                                    state.messages?.reversed.toList()[index] ??
+                                        ChatMessage(
+                                          text: '',
+                                          sender: '',
+                                          time: DateTime.now(),
+                                        ),
+                              ),
+                    itemCount: state.messages?.reversed.toList().length,
+                  ),
+                ),
+                const Divider(height: 1.0),
+                Container(
+                  decoration: BoxDecoration(color: Theme.of(context).cardColor),
+                  child: _buildTextComposer(),
+                ),
+              ],
+            );
+          }
+          return const Center(
+            child: CircularProgressIndicator(),
+          );
+        },
       ),
     );
   }
 }
 
-class ChatMessage extends StatelessWidget {
+class ChatMessage {
   final String text;
   final String sender;
   final DateTime time;
 
   const ChatMessage(
-      {super.key,
-      required this.text,
-      required this.sender,
-      required this.time});
+      {required this.text, required this.sender, required this.time});
+}
+
+class ChatItem extends StatelessWidget {
+  final ChatMessage chatMessage;
+  const ChatItem({super.key, required this.chatMessage});
 
   @override
   Widget build(BuildContext context) {
@@ -102,16 +103,17 @@ class ChatMessage extends StatelessWidget {
         children: <Widget>[
           Container(
             margin: const EdgeInsets.only(right: 16.0),
-            child: CircleAvatar(child: Text(sender[0])),
+            child: CircleAvatar(child: Text(chatMessage.sender[0])),
           ),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Text(sender, style: Theme.of(context).textTheme.titleMedium),
+                Text(chatMessage.sender,
+                    style: Theme.of(context).textTheme.titleMedium),
                 Container(
                   margin: const EdgeInsets.only(top: 5.0),
-                  child: Text(text),
+                  child: Text(chatMessage.text),
                 ),
               ],
             ),
@@ -119,7 +121,7 @@ class ChatMessage extends StatelessWidget {
           Container(
             margin: const EdgeInsets.only(left: 16.0),
             child: Text(
-              "${time.hour}:${time.minute}",
+              "${chatMessage.time.hour}:${chatMessage.time.minute}",
               style: const TextStyle(fontSize: 12.0),
             ),
           ),

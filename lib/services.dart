@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 class ChatGPTAPI {
   static const String baseUrl = 'https://api.openai.com/v1/chat/completions';
   static const String apiKey =
-      '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';
+      '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';
 
   Future<ChatModel> getMessage(String message) async {
     final response = await http.post(
